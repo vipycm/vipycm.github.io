@@ -13,7 +13,7 @@ adb shell dumpsys activity | grep "mFocusedActivity"
 #windows:
 adb shell dumpsys activity | findstr "mFocusedActivity"
 ```
-<!--more-->
+    <!--more-->
 2. 查看service列表
 ``` bash
 adb shell dumpsys activity services [包名（可选）]
@@ -68,4 +68,3 @@ adb install <apkfile>
 ``` bash
 adb uninstall <package>
 ```
-
