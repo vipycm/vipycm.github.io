@@ -1,5 +1,5 @@
 layout: "post"
-title: "通过dupmdex定位导致崩溃的具体代码"
+title: "通过dumpdex定位导致崩溃的具体代码"
 date: "2016-12-10 17:52"
 categories:
 - Android
