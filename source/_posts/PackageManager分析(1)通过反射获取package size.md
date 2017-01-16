@@ -22,8 +22,6 @@ private void getPackageInfo(Context context, String pkg) {
         Method method_getPackageSizeInfo = pm.getClass().getMethod("getPackageSizeInfo", String.class, IPackageStatsObserver.class);
         method_getPackageSizeInfo.invoke(pm, pkg, new IPackageStatsObserver.Stub() {
 
-  [f2cd7e9b]: aa "title"
-
             @Override
             public IBinder asBinder() {
                 log.d("asBinder");
