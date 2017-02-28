@@ -68,3 +68,16 @@ adb install <apkfile>
 ``` bash
 adb uninstall <package>
 ```
+12. 通过settings修改AndroidId
+```
+#获取aid
+settings get secure android_id
+#修改aid
+settings put secure android_id [aid]
+#直接输入settings可查看使用说明
+settings
+```
+13. 查看activity情况
+```
+adb shell dumpsys activity top
+```
