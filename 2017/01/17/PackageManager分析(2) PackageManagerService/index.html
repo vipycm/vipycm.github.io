@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+
+
+
+  
+
+
+<html class="theme-next muse use-motion" lang="zh-Hans">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+<meta name="theme-color" content="#222">
+
+
+
+
+
+
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/lib/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.1.2" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="Hexo, NexT" />
+
+
+
+
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=5.1.2" />
+
+
+
+
+
+
+<meta name="description" content="在第1节中,通过反射调用PackageManager的getPackageInfo方法实现了package size的获取,那么这个系统接口做了哪些事情呢,接下来就通过函数的调用堆栈来分析一下PackageManagerService这个服务.">
+<meta property="og:type" content="article">
+<meta property="og:title" content="PackageManager分析(2) PackageManagerService">
+<meta property="og:url" content="http://blog.vipycm.com/2017/01/17/PackageManager分析(2) PackageManagerService/index.html">
+<meta property="og:site_name" content="bug fix">
+<meta property="og:description" content="在第1节中,通过反射调用PackageManager的getPackageInfo方法实现了package size的获取,那么这个系统接口做了哪些事情呢,接下来就通过函数的调用堆栈来分析一下PackageManagerService这个服务.">
+<meta property="og:locale" content="zh-Hans">
+<meta property="og:updated_time" content="2017-09-15T03:55:02.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="PackageManager分析(2) PackageManagerService">
+<meta name="twitter:description" content="在第1节中,通过反射调用PackageManager的getPackageInfo方法实现了package size的获取,那么这个系统接口做了哪些事情呢,接下来就通过函数的调用堆栈来分析一下PackageManagerService这个服务.">
+
+
+
+<script type="text/javascript" id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Muse',
+    version: '5.1.2',
+    sidebar: {"position":"left","display":"post","offset":12,"offset_float":12,"b2t":false,"scrollpercent":false,"onmobile":false},
+    fancybox: true,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn"}},
+    duoshuo: {
+      userId: '0',
+      author: '博主'
+    },
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+
+  <link rel="canonical" href="http://blog.vipycm.com/2017/01/17/PackageManager分析(2) PackageManagerService/"/>
+
+
+
+
+
+  <title>PackageManager分析(2) PackageManagerService | bug fix</title>
+  
+
+
+
+
+
+
+
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta ">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/"  class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">bug fix</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+      
+        <p class="site-subtitle"></p>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            归档
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="http://blog.vipycm.com/2017/01/17/PackageManager分析(2) PackageManagerService/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="vipycm">
+      <meta itemprop="description" content="">
+      <meta itemprop="image" content="/images/avatar.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="bug fix">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">PackageManager分析(2) PackageManagerService</h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+              <time title="创建于" itemprop="dateCreated datePublished" datetime="2017-01-17T14:41:00+08:00">
+                2017-01-17
+              </time>
+            
+
+            
+
+            
+          </span>
+
+          
+
+          
+            
+          
+
+          
+          
+
+          
+
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>在第1节中,通过反射调用PackageManager的getPackageInfo方法实现了package size的获取,那么这个系统接口做了哪些事情呢,接下来就通过函数的调用堆栈来分析一下PackageManagerService这个服务.<br><a id="more"></a></p>
+<h3 id="PackageManager"><a href="#PackageManager" class="headerlink" title="PackageManager"></a>PackageManager</h3><p>首先看看我们调用的PackageManager<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div></pre></td><td class="code"><pre><div class="line">// android.content.pm.PackageManager</div><div class="line"></div><div class="line">public void getPackageSizeInfo(String packageName, IPackageStatsObserver observer) &#123;</div><div class="line">    getPackageSizeInfoAsUser(packageName, UserHandle.myUserId(), observer);</div><div class="line">&#125;</div><div class="line"></div><div class="line">public abstract void getPackageSizeInfoAsUser(String packageName, @UserIdInt int userId,</div><div class="line">          IPackageStatsObserver observer);</div></pre></td></tr></table></figure></p>
+<h3 id="ApplicationPackageManager"><a href="#ApplicationPackageManager" class="headerlink" title="ApplicationPackageManager"></a>ApplicationPackageManager</h3><p>getPackageSizeInfoAsUser是一个抽象方法,通过Context.getPackageManager()得到的时ApplicationPackageManager的实例,继续跟进ApplicationPackageManager<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div></pre></td><td class="code"><pre><div class="line">//android.app.ApplicationPackageManager</div><div class="line"></div><div class="line">private final IPackageManager mPM;</div><div class="line"></div><div class="line">public void getPackageSizeInfoAsUser(String packageName, int userHandle, IPackageStatsObserver observer) &#123;</div><div class="line">    try &#123;</div><div class="line">        this.mPM.getPackageSizeInfo(packageName, userHandle, observer);</div><div class="line">    &#125; catch (RemoteException var5) &#123;</div><div class="line">        throw var5.rethrowFromSystemServer();</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<h3 id="PackageManagerService"><a href="#PackageManagerService" class="headerlink" title="PackageManagerService"></a>PackageManagerService</h3><p>ApplicationPackageManager 其实只是对IPackageManager这个aidl接口的封装,该接口的实现在PackageManagerService中.属于framework层的代码,代码位于<br>frameworks/base/services/core/java/com/android/server/pm/PackageManagerService.java<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div></pre></td><td class="code"><pre><div class="line">// com.android.server.pm.PackageManagerService</div><div class="line"></div><div class="line">public void getPackageSizeInfo(final String packageName, int userHandle,</div><div class="line">        final IPackageStatsObserver observer) &#123;</div><div class="line">    mContext.enforceCallingOrSelfPermission(</div><div class="line">            android.Manifest.permission.GET_PACKAGE_SIZE, null);</div><div class="line">    if (packageName == null) &#123;</div><div class="line">        throw new IllegalArgumentException(&quot;Attempt to get size of null packageName&quot;);</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    PackageStats stats = new PackageStats(packageName, userHandle);</div><div class="line"></div><div class="line">    /*</div><div class="line">     * Queue up an async operation since the package measurement may take a</div><div class="line">     * little while.</div><div class="line">     */</div><div class="line">    Message msg = mHandler.obtainMessage(INIT_COPY);</div><div class="line">    msg.obj = new MeasureParams(stats, observer);</div><div class="line">    mHandler.sendMessage(msg);</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>getPackageSizeInfo里面把这个请求封装成MeasureParams之后通过mHandler send出去之后这个方法就返回了,顺着mHandler继续寻找,会调用到MeasureParams的handleStartCopy来处理请求<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div><div class="line">69</div><div class="line">70</div><div class="line">71</div><div class="line">72</div><div class="line">73</div><div class="line">74</div><div class="line">75</div></pre></td><td class="code"><pre><div class="line">// com.android.server.pm.PackageManagerService.MeasureParams</div><div class="line"></div><div class="line">class MeasureParams extends HandlerParams &#123;</div><div class="line">    private final PackageStats mStats;</div><div class="line">    private boolean mSuccess;</div><div class="line"></div><div class="line">    private final IPackageStatsObserver mObserver;</div><div class="line"></div><div class="line">    public MeasureParams(PackageStats stats, IPackageStatsObserver observer) &#123;</div><div class="line">        super(new UserHandle(stats.userHandle));</div><div class="line">        mObserver = observer;</div><div class="line">        mStats = stats;</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    @Override</div><div class="line">    public String toString() &#123;</div><div class="line">        return &quot;MeasureParams&#123;&quot;</div><div class="line">            + Integer.toHexString(System.identityHashCode(this))</div><div class="line">            + &quot; &quot; + mStats.packageName + &quot;&#125;&quot;;</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    @Override</div><div class="line">    void handleStartCopy() throws RemoteException &#123;</div><div class="line">        synchronized (mInstallLock) &#123;</div><div class="line">            mSuccess = getPackageSizeInfoLI(mStats.packageName, mStats.userHandle, mStats);</div><div class="line">        &#125;</div><div class="line"></div><div class="line">        if (mSuccess) &#123;</div><div class="line">            final boolean mounted;</div><div class="line">            if (Environment.isExternalStorageEmulated()) &#123;</div><div class="line">                mounted = true;</div><div class="line">            &#125; else &#123;</div><div class="line">                final String status = Environment.getExternalStorageState();</div><div class="line">                mounted = (Environment.MEDIA_MOUNTED.equals(status)</div><div class="line">                        || Environment.MEDIA_MOUNTED_READ_ONLY.equals(status));</div><div class="line">            &#125;</div><div class="line"></div><div class="line">            if (mounted) &#123;</div><div class="line">                final UserEnvironment userEnv = new UserEnvironment(mStats.userHandle);</div><div class="line"></div><div class="line">                mStats.externalCacheSize = calculateDirectorySize(mContainerService,</div><div class="line">                        userEnv.buildExternalStorageAppCacheDirs(mStats.packageName));</div><div class="line"></div><div class="line">                mStats.externalDataSize = calculateDirectorySize(mContainerService,</div><div class="line">                        userEnv.buildExternalStorageAppDataDirs(mStats.packageName));</div><div class="line"></div><div class="line">                // Always subtract cache size, since it&apos;s a subdirectory</div><div class="line">                mStats.externalDataSize -= mStats.externalCacheSize;</div><div class="line"></div><div class="line">                mStats.externalMediaSize = calculateDirectorySize(mContainerService,</div><div class="line">                        userEnv.buildExternalStorageAppMediaDirs(mStats.packageName));</div><div class="line"></div><div class="line">                mStats.externalObbSize = calculateDirectorySize(mContainerService,</div><div class="line">                        userEnv.buildExternalStorageAppObbDirs(mStats.packageName));</div><div class="line">            &#125;</div><div class="line">        &#125;</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    @Override</div><div class="line">    void handleReturnCode() &#123;</div><div class="line">        if (mObserver != null) &#123;</div><div class="line">            try &#123;</div><div class="line">                mObserver.onGetStatsCompleted(mStats, mSuccess);</div><div class="line">            &#125; catch (RemoteException e) &#123;</div><div class="line">                Slog.i(TAG, &quot;Observer no longer exists.&quot;);</div><div class="line">            &#125;</div><div class="line">        &#125;</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    @Override</div><div class="line">    void handleServiceError() &#123;</div><div class="line">        Slog.e(TAG, &quot;Could not measure application &quot; + mStats.packageName</div><div class="line">                        + &quot; external storage&quot;);</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>从handleStartCopy方法可以看到,在调用getPackageSizeInfoLI方法(计算/data/data/{pkg}/xxx下的size)成功之后,再计算与扩展卡相关的各种size,接下来看看getPackageSizeInfoLI的实现</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div><div class="line">69</div><div class="line">70</div><div class="line">71</div><div class="line">72</div><div class="line">73</div><div class="line">74</div><div class="line">75</div><div class="line">76</div><div class="line">77</div><div class="line">78</div><div class="line">79</div><div class="line">80</div><div class="line">81</div><div class="line">82</div><div class="line">83</div><div class="line">84</div></pre></td><td class="code"><pre><div class="line">final Installer mInstaller;</div><div class="line"></div><div class="line">private boolean getPackageSizeInfoLI(String packageName, int userHandle,</div><div class="line">        PackageStats pStats) &#123;</div><div class="line">    if (packageName == null) &#123;</div><div class="line">        Slog.w(TAG, &quot;Attempt to get size of null packageName.&quot;);</div><div class="line">        return false;</div><div class="line">    &#125;</div><div class="line">    PackageParser.Package p;</div><div class="line">    boolean dataOnly = false;</div><div class="line">    String libDirRoot = null;</div><div class="line">    String asecPath = null;</div><div class="line">    PackageSetting ps = null;</div><div class="line">    synchronized (mPackages) &#123;</div><div class="line">        p = mPackages.get(packageName);</div><div class="line">        ps = mSettings.mPackages.get(packageName);</div><div class="line">        if(p == null) &#123;</div><div class="line">            dataOnly = true;</div><div class="line">            if((ps == null) || (ps.pkg == null)) &#123;</div><div class="line">                Slog.w(TAG, &quot;Package named &apos;&quot; + packageName +&quot;&apos; doesn&apos;t exist.&quot;);</div><div class="line">                return false;</div><div class="line">            &#125;</div><div class="line">            p = ps.pkg;</div><div class="line">        &#125;</div><div class="line">        if (ps != null) &#123;</div><div class="line">            libDirRoot = ps.legacyNativeLibraryPathString;</div><div class="line">        &#125;</div><div class="line">        if (p != null &amp;&amp; (p.isForwardLocked() || p.applicationInfo.isExternalAsec())) &#123;</div><div class="line">            final long token = Binder.clearCallingIdentity();</div><div class="line">            try &#123;</div><div class="line">                String secureContainerId = cidFromCodePath(p.applicationInfo.getBaseCodePath());</div><div class="line">                if (secureContainerId != null) &#123;</div><div class="line">                    asecPath = PackageHelper.getSdFilesystem(secureContainerId);</div><div class="line">                &#125;</div><div class="line">            &#125; finally &#123;</div><div class="line">                Binder.restoreCallingIdentity(token);</div><div class="line">            &#125;</div><div class="line">        &#125;</div><div class="line">    &#125;</div><div class="line">    String publicSrcDir = null;</div><div class="line">    if(!dataOnly) &#123;</div><div class="line">        final ApplicationInfo applicationInfo = p.applicationInfo;</div><div class="line">        if (applicationInfo == null) &#123;</div><div class="line">            Slog.w(TAG, &quot;Package &quot; + packageName + &quot; has no applicationInfo.&quot;);</div><div class="line">            return false;</div><div class="line">        &#125;</div><div class="line">        if (p.isForwardLocked()) &#123;</div><div class="line">            publicSrcDir = applicationInfo.getBaseResourcePath();</div><div class="line">        &#125;</div><div class="line">    &#125;</div><div class="line">    // TODO: extend to measure size of split APKs</div><div class="line">    // TODO(multiArch): Extend getSizeInfo to look at the full subdirectory tree,</div><div class="line">    // not just the first level.</div><div class="line">    // TODO(multiArch): Extend getSizeInfo to look at *all* instruction sets, not</div><div class="line">    // just the primary.</div><div class="line">    String[] dexCodeInstructionSets = getDexCodeInstructionSets(getAppDexInstructionSets(ps));</div><div class="line"></div><div class="line">    String apkPath;</div><div class="line">    File packageDir = new File(p.codePath);</div><div class="line"></div><div class="line">    if (packageDir.isDirectory() &amp;&amp; p.canHaveOatDir()) &#123;</div><div class="line">        apkPath = packageDir.getAbsolutePath();</div><div class="line">        // If libDirRoot is inside a package dir, set it to null to avoid it being counted twice</div><div class="line">        if (libDirRoot != null &amp;&amp; libDirRoot.startsWith(apkPath)) &#123;</div><div class="line">            libDirRoot = null;</div><div class="line">        &#125;</div><div class="line">    &#125; else &#123;</div><div class="line">        apkPath = p.baseCodePath;</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    int res = mInstaller.getSizeInfo(p.volumeUuid, packageName, userHandle, apkPath,</div><div class="line">            libDirRoot, publicSrcDir, asecPath, dexCodeInstructionSets, pStats);</div><div class="line">    if (res &lt; 0) &#123;</div><div class="line">        return false;</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    // Fix-up for forward-locked applications in ASEC containers.</div><div class="line">    if (!isExternal(p)) &#123;</div><div class="line">        pStats.codeSize += pStats.externalCodeSize;</div><div class="line">        pStats.externalCodeSize = 0L;</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    return true;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>其中最重要的一句是调用mInstaller.getSizeInfo(…)来计算size.</p>
+<h3 id="Installer"><a href="#Installer" class="headerlink" title="Installer"></a>Installer</h3><p>接着来看看Installer的getSizeInfo方法,代码位于:<br>frameworks/base/services/core/java/com/android/server/pm/Installer.java<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div></pre></td><td class="code"><pre><div class="line">private final InstallerConnection mInstaller;</div><div class="line"></div><div class="line">public int getSizeInfo(String uuid, String pkgName, int persona, String apkPath,</div><div class="line">        String libDirPath, String fwdLockApkPath, String asecPath, String[] instructionSets,</div><div class="line">        PackageStats pStats) &#123;</div><div class="line">    for (String instructionSet : instructionSets) &#123;</div><div class="line">        if (!isValidInstructionSet(instructionSet)) &#123;</div><div class="line">            Slog.e(TAG, &quot;Invalid instruction set: &quot; + instructionSet);</div><div class="line">            return -1;</div><div class="line">        &#125;</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    StringBuilder builder = new StringBuilder(&quot;getsize&quot;);</div><div class="line">    builder.append(&apos; &apos;);</div><div class="line">    builder.append(escapeNull(uuid));</div><div class="line">    builder.append(&apos; &apos;);</div><div class="line">    builder.append(pkgName);</div><div class="line">    builder.append(&apos; &apos;);</div><div class="line">    builder.append(persona);</div><div class="line">    builder.append(&apos; &apos;);</div><div class="line">    builder.append(apkPath);</div><div class="line">    builder.append(&apos; &apos;);</div><div class="line">    // TODO: Extend getSizeInfo to look at the full subdirectory tree,</div><div class="line">    // not just the first level.</div><div class="line">    builder.append(libDirPath != null ? libDirPath : &quot;!&quot;);</div><div class="line">    builder.append(&apos; &apos;);</div><div class="line">    builder.append(fwdLockApkPath != null ? fwdLockApkPath : &quot;!&quot;);</div><div class="line">    builder.append(&apos; &apos;);</div><div class="line">    builder.append(asecPath != null ? asecPath : &quot;!&quot;);</div><div class="line">    builder.append(&apos; &apos;);</div><div class="line">    // TODO: Extend getSizeInfo to look at *all* instrution sets, not</div><div class="line">    // just the primary.</div><div class="line">    builder.append(instructionSets[0]);</div><div class="line"></div><div class="line">    String s = mInstaller.transact(builder.toString());</div><div class="line">    String res[] = s.split(&quot; &quot;);</div><div class="line"></div><div class="line">    if ((res == null) || (res.length != 5)) &#123;</div><div class="line">        return -1;</div><div class="line">    &#125;</div><div class="line">    try &#123;</div><div class="line">        pStats.codeSize = Long.parseLong(res[1]);</div><div class="line">        pStats.dataSize = Long.parseLong(res[2]);</div><div class="line">        pStats.cacheSize = Long.parseLong(res[3]);</div><div class="line">        pStats.externalCodeSize = Long.parseLong(res[4]);</div><div class="line">        return Integer.parseInt(res[0]);</div><div class="line">    &#125; catch (NumberFormatException e) &#123;</div><div class="line">        return -1;</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>其中最重要的一句时调用mInstaller.transact(…)发送了一个getsize的命令来计算size.</p>
+<h3 id="InstallerConnection"><a href="#InstallerConnection" class="headerlink" title="InstallerConnection"></a>InstallerConnection</h3><p>继续跟进InstallerConnection,代码位于:<br>frameworks/base/core/java/com/android/internal/os/InstallerConnection.java<br><figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div><div class="line">30</div><div class="line">31</div><div class="line">32</div><div class="line">33</div><div class="line">34</div><div class="line">35</div><div class="line">36</div><div class="line">37</div><div class="line">38</div><div class="line">39</div><div class="line">40</div><div class="line">41</div><div class="line">42</div><div class="line">43</div><div class="line">44</div><div class="line">45</div><div class="line">46</div><div class="line">47</div><div class="line">48</div><div class="line">49</div><div class="line">50</div><div class="line">51</div><div class="line">52</div><div class="line">53</div><div class="line">54</div><div class="line">55</div><div class="line">56</div><div class="line">57</div><div class="line">58</div><div class="line">59</div><div class="line">60</div><div class="line">61</div><div class="line">62</div><div class="line">63</div><div class="line">64</div><div class="line">65</div><div class="line">66</div><div class="line">67</div><div class="line">68</div><div class="line">69</div><div class="line">70</div><div class="line">71</div><div class="line">72</div><div class="line">73</div><div class="line">74</div><div class="line">75</div><div class="line">76</div><div class="line">77</div></pre></td><td class="code"><pre><div class="line">public synchronized String transact(String cmd) &#123;</div><div class="line">    if (!connect()) &#123;</div><div class="line">        Slog.e(TAG, &quot;connection failed&quot;);</div><div class="line">        return &quot;-1&quot;;</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    if (!writeCommand(cmd)) &#123;</div><div class="line">        /*</div><div class="line">         * If installd died and restarted in the background (unlikely but</div><div class="line">         * possible) we&apos;ll fail on the next write (this one). Try to</div><div class="line">         * reconnect and write the command one more time before giving up.</div><div class="line">         */</div><div class="line">        Slog.e(TAG, &quot;write command failed? reconnect!&quot;);</div><div class="line">        if (!connect() || !writeCommand(cmd)) &#123;</div><div class="line">            return &quot;-1&quot;;</div><div class="line">        &#125;</div><div class="line">    &#125;</div><div class="line">    if (LOCAL_DEBUG) &#123;</div><div class="line">        Slog.i(TAG, &quot;send: &apos;&quot; + cmd + &quot;&apos;&quot;);</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    final int replyLength = readReply();</div><div class="line">    if (replyLength &gt; 0) &#123;</div><div class="line">        String s = new String(buf, 0, replyLength);</div><div class="line">        if (LOCAL_DEBUG) &#123;</div><div class="line">            Slog.i(TAG, &quot;recv: &apos;&quot; + s + &quot;&apos;&quot;);</div><div class="line">        &#125;</div><div class="line">        return s;</div><div class="line">    &#125; else &#123;</div><div class="line">        if (LOCAL_DEBUG) &#123;</div><div class="line">            Slog.i(TAG, &quot;fail&quot;);</div><div class="line">        &#125;</div><div class="line">        return &quot;-1&quot;;</div><div class="line">    &#125;</div><div class="line">&#125;</div><div class="line"></div><div class="line">private boolean connect() &#123;</div><div class="line">    if (mSocket != null) &#123;</div><div class="line">        return true;</div><div class="line">    &#125;</div><div class="line">    Slog.i(TAG, &quot;connecting...&quot;);</div><div class="line">    try &#123;</div><div class="line">        mSocket = new LocalSocket();</div><div class="line"></div><div class="line">        LocalSocketAddress address = new LocalSocketAddress(&quot;installd&quot;,</div><div class="line">                LocalSocketAddress.Namespace.RESERVED);</div><div class="line"></div><div class="line">        mSocket.connect(address);</div><div class="line"></div><div class="line">        mIn = mSocket.getInputStream();</div><div class="line">        mOut = mSocket.getOutputStream();</div><div class="line">    &#125; catch (IOException ex) &#123;</div><div class="line">        disconnect();</div><div class="line">        return false;</div><div class="line">    &#125;</div><div class="line">    return true;</div><div class="line">&#125;</div><div class="line"></div><div class="line">private boolean writeCommand(String cmdString) &#123;</div><div class="line">    final byte[] cmd = cmdString.getBytes();</div><div class="line">    final int len = cmd.length;</div><div class="line">    if ((len &lt; 1) || (len &gt; buf.length)) &#123;</div><div class="line">        return false;</div><div class="line">    &#125;</div><div class="line"></div><div class="line">    buf[0] = (byte) (len &amp; 0xff);</div><div class="line">    buf[1] = (byte) ((len &gt;&gt; 8) &amp; 0xff);</div><div class="line">    try &#123;</div><div class="line">        mOut.write(buf, 0, 2);</div><div class="line">        mOut.write(cmd, 0, len);</div><div class="line">    &#125; catch (IOException ex) &#123;</div><div class="line">        Slog.e(TAG, &quot;write error&quot;);</div><div class="line">        disconnect();</div><div class="line">        return false;</div><div class="line">    &#125;</div><div class="line">    return true;</div><div class="line">&#125;</div></pre></td></tr></table></figure></p>
+<p>这里面的逻辑比较简单,就是通过LocalSocketAddress连接到一个服务器,然后写入命令.至于这个服务器在哪里,里面的逻辑时怎么样的,我们下一节再进一步分析.</p>
+
+      
+    </div>
+    
+    
+    
+
+    
+
+    
+
+    
+
+    <footer class="post-footer">
+      
+
+      
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2017/01/16/PackageManager分析(1)通过反射获取package size/" rel="next" title="PackageManager分析(1)通过反射获取package size">
+                <i class="fa fa-chevron-left"></i> PackageManager分析(1)通过反射获取package size
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2017/02/07/Screen overlay 问题排查/" rel="prev" title="Screen overlay 问题排查">
+                Screen overlay 问题排查 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+
+    <div class="post-spread">
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          
+            <img class="site-author-image" itemprop="image"
+              src="/images/avatar.jpg"
+              alt="vipycm" />
+          
+            <p class="site-author-name" itemprop="name">vipycm</p>
+            <p class="site-description motion-element" itemprop="description"></p>
+        </div>
+
+        <nav class="site-state motion-element">
+
+          
+            <div class="site-state-item site-state-posts">
+            
+              <a href="/archives/">
+            
+                <span class="site-state-item-count">11</span>
+                <span class="site-state-item-name">日志</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-categories">
+              <a href="/categories/index.html">
+                <span class="site-state-item-count">2</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            
+            
+            <div class="site-state-item site-state-tags">
+              <a href="/tags/index.html">
+                <span class="site-state-item-count">11</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+
+        <div class="links-of-author motion-element">
+          
+        </div>
+
+        
+        
+
+        
+        
+
+        
+
+
+      </section>
+
+      
+      <!--noindex-->
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+              
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#PackageManager"><span class="nav-number">1.</span> <span class="nav-text">PackageManager</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#ApplicationPackageManager"><span class="nav-number">2.</span> <span class="nav-text">ApplicationPackageManager</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#PackageManagerService"><span class="nav-number">3.</span> <span class="nav-text">PackageManagerService</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Installer"><span class="nav-number">4.</span> <span class="nav-text">Installer</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#InstallerConnection"><span class="nav-number">5.</span> <span class="nav-text">InstallerConnection</span></a></li></ol></div>
+            
+
+          </div>
+        </section>
+      <!--/noindex-->
+      
+
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy; 
+  <span itemprop="copyrightYear">2017</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">vipycm</span>
+
+  
+</div>
+
+
+  <div class="powered-by">由 <a class="theme-link" href="https://hexo.io">Hexo</a> 强力驱动</div>
+
+  <span class="post-meta-divider">|</span>
+
+  <div class="theme-info">主题 &mdash; <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">NexT.Muse</a> v5.1.2</div>
+
+
+        
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+        
+      </div>
+    
+
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script type="text/javascript" src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/lib/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/lib/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/lib/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.1.2"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.1.2"></script>
+
+
+
+  
+  
+
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.2"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.2"></script>
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.1.2"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.1.2"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.1.2"></script>
+
+
+
+  
+
+
+  
+
+
+
+
+	
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+
+
+
+
+
+
+
+  
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+</body>
+</html>
